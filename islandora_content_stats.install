@@ -7,6 +7,9 @@
 //https://www.drupal.org/node/146843
 
 
+//$conn = Database::getConnection();
+//dpm($conn);
+
 //SCHEMA: 
 //id: int, primary_key, auto_increment,
 //count: int,
@@ -40,18 +43,18 @@ function islandora_content_stats_schema() {
    'description' => 'Table that stores Islandora Content.',
    'fields' => array(
      'id'  => array(
-       'type' => serial,
+       'type' => 'serial',
        'unsigned' => true,
        'not_null' => true
      ),
-     'content model' => array(
+     'query' => array(
        'type' => 'varchar',
        'length' => 255,
-       'description' => 'content model',
+       'description' => 'description of query',
        ),
      'count' => array(
        'type' => 'int',
-       'description' => 'count of active, and unique items of a particular cmodel',
+       'description' => 'count of items',
      ),
      'timestamp' => array(
        'type' => 'datetime',
@@ -64,6 +67,13 @@ function islandora_content_stats_schema() {
  return $schema;
 }
 
+
+function islandora_content_stats_uninstall(){
+  $result = db_query("SELECT * FROM {islandora_content_stats}");
+  foreach($result as $data){
+    db_query("DELETE FROM {ldl} WHERE name = :name", array(':name' =>'islandora_content_stats_',$data->id));
+  }
+}
 
 
 //

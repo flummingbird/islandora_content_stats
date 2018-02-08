@@ -23,19 +23,36 @@ EOL;
   return $result;
 }
 
-//list of content models as variables (unused...)
-$audio = "<info:fedora/islandora:sp-audioCModel>";
-$large_image = "<info:fedora/islandora:sp_large_image_cmodel>";
-$compound = "<info:fedora/islandora:compoundCModel>";
-$books = "<info:fedora/islandora:bookCModel>";
-$video = "<info:fedora/islandora:sp_videoCModel>";
-$collection = "<info:fedora/islandora:collectionCModel>";
-$pdf = "<info:fedora/islandora:sp_pdf>";
-$newspaper = "<info:fedora/islandora:newspaperCModel>";
-$newspage = "<info:fedora/islandora:newspaperPageModel>";
-$newsissue = "<info:fedora/islandora:newspaperIssueCModel>";
-$oralhist = "<info:fedora/islandora:sp-ohCModel>";
-$remote = "<info:fedora/islandora:sp_remote_resource>";
+
+
+
+//
+//
+//function populate_cmodel_counts(){
+//    //list of content models as variables (unused...)
+//$audio = "<info:fedora/islandora:sp-audioCModel>";
+//$large_image = "<info:fedora/islandora:sp_large_image_cmodel>";
+//$compound = "<info:fedora/islandora:compoundCModel>";
+//$books = "<info:fedora/islandora:bookCModel>";
+//$video = "<info:fedora/islandora:sp_videoCModel>";
+//$collection = "<info:fedora/islandora:collectionCModel>";
+//$pdf = "<info:fedora/islandora:sp_pdf>";
+//$newspaper = "<info:fedora/islandora:newspaperCModel>";
+//$newspage = "<info:fedora/islandora:newspaperPageModel>";
+//$newsissue = "<info:fedora/islandora:newspaperIssueCModel>";
+//$oralhist = "<info:fedora/islandora:sp-ohCModel>";
+//$remote = "<info:fedora/islandora:sp_remote_resource>";
+//    $ctype_list = [$audio,$books,$collection,$compound,$large_image,$newspaper,$newsissue,$oralhist,$pdf,$remote,$video];
+//    foreach($ctype_list as $model){
+//       $result = cmodel_query($model);
+//       dpm($result);
+//    }
+//}
+//
+//
+
+
+
 
 /**
  * Query the RI for a count of a single individual content models
@@ -46,12 +63,11 @@ function cmodel_query($model) {
   $model_key = preg_replace('/>/','', preg_replace('/</', '',$model));
   
   $query = <<<EOL
-select count(select \$item from <#ri>
 where \$item <info:fedora/fedora-system:def/model#hasModel>;
-$model and \$item <info:fedora/fedora-system:def/model#state> <fedora-model:Active>)
+$model and \$item <info:fedora/fedora-system:def/model#state> <fedora-model:Active>
 from <#ri>
 where \$item <info:fedora/fedora-system:def/model#hasModel> $model
-having \$k0 <http://mulgara.org/mulgara#occursMoreThan> '0.0'^^<http://www.w3.org/2001/XMLSchema#double> ;";
+having \$k0 <http://mulgara.org/mulgara#occursMoreThan> '0.0'^^<http://www.w3.org/2001/XMLSchema#double> ;
 EOL;
   
   $result = $tuque->repository->ri->itqlQuery($query, 'unlimited');

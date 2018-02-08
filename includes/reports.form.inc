@@ -25,6 +25,23 @@ function islandora_content_stats_reports_form($form, &$form_state) {
 //    }
   $institution_collection_audit = all_institution_cmodel_query();
   
+  
+//  $counts = all_cmodel_counts();
+//  dpm($counts);
+//  foreach($counts as $cmodel_count){
+//    dpm($cmodel_count['cmodel']['value']);
+//    dpm($cmodel_count['k0']['value']);
+//    db_insert('islandora_content_stats')
+//        ->fields(array(
+//            'query' => $cmodel_count['cmodel']['value'],
+//            'count' => $cmodel_count['k0']['value'],
+//            'timestamp' => time(),
+//        ))
+//        ->execute();
+//  }
+//  
+  
+  
   foreach($institution_collection_audit as $inst => $count){
     if(isset($count)){
       foreach($count as $key => $val){

@@ -1,6 +1,5 @@
 <?php
 //require_once dirname(__FILE__) . '/includes/queries.inc';
-//$current_time = time();
 /**
  * Implements hook_menu().
  */
@@ -23,6 +22,20 @@ function islandora_content_stats_menu() {
 
   return $items;
 }
+
+//
+///**
+// * Implements hook_block_info().
+// */
+//function current_posts_block_info() {
+//  $blocks['current_posts'] = array(
+//    // The name that will appear in the block list.
+//    'info' => t('Current posts'),
+//    // Default setting.
+//    'cache' => DRUPAL_CACHE_PER_ROLE,
+//  );
+//  return $blocks;
+//}
 
 //display all query results on demand
 //- as a report DONE
