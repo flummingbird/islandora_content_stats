@@ -151,7 +151,7 @@ EOQ;
   }
   $coll_models = [];
   foreach($institution_coll_counts as $key => $val){
-      dpm($val);
+      //dpm($val);
     $coll_models[$key] =  institution_cmodel_query($key);
   }
   return $coll_models;
@@ -233,7 +233,6 @@ function islandora_content_stats_cron() {
   }
   $last_q_plus_interval = $interval + $last_q_run;
   if(time() >= $last_q_plus_interval){
-    var_dump('aoeuaoeuaoeu');
     islandora_content_stats_test();
   }
 }
@@ -282,4 +281,25 @@ function islandora_content_stats_test(){
         ))
         ->execute();
     }
+ }
+
+
+ function islandora_content_stats_page_cmodels($path){
+   $last_query_time_db = db_query('select max(timestamp) from ldl.islandora_content_stats');
+   $last_q_time = '';
+   foreach($last_query_time_db as $return){
+     $last_q_time = (isset ($return) ? $return->{'max(timestamp)'} : 0);
+   }
+   $query ="select * from ldl.islandora_content_stats where query like ";
+   $query_suf = " and timestamp = ";
+   $result = db_query($query .  '\''. '%'. $path . '%'. '\'' . $query_suf . '\'' .$last_q_time . '\'');
+   $results = $result->fetchAll();
+   $display = [];
+   foreach($results as $query_r){
+     if(!strpos($query_r->query,'fedora-system')){
+       $display[$query_r->query] = $query_r->count;
+     }
+   }
+   dpm($display);
+   return $display;
  }
