@@ -2,6 +2,7 @@
 require_once dirname(__FILE__) . '/includes/queries.inc';
 require_once dirname(__FILE__) . '/includes/reports.form.inc';
 require_once dirname(__FILE__) . '/includes/reports-page.form.inc';
+module_load_include('php','islandora_namespace_homepage','includes/utilities;');
 
 /**
  * Implements hook_menu().
@@ -44,9 +45,11 @@ function islandora_content_stats_post_collection_stats(){
 
 function check_path(){
   $one_of_these = update_namespace_prefixes_cache();
-      if(in_array(str_replace('/','',request_uri()), $one_of_these)){
+      foreach($one_of_these as $ns_prefix){
+      if(preg_match('/'.$ns_prefix.'/', str_replace('/','',request_uri()))){
         return true;
       }
+    }
 }
 
 function islandora_content_stats_post_institution_stats(){
@@ -57,6 +60,11 @@ function islandora_content_stats_post_institution_stats(){
   }
 }
 
+function islandora_root_page_stats(){
+  return islandora_root_stats_queries();
+}
+
+
 /**
 * Implements hook_block_info().
 */
@@ -64,14 +72,18 @@ function islandora_content_stats_block_info() {
   $blocks = array();
     $blocks['content_stats'] = array(
       'info' => t('Content Stats'),
-      'cache' => DRUPAL_CACHE_PER_USER
+      'cache' => DRUPAL_NO_CACHE,
     );
     $blocks['content_stats_page'] = array(
-      'info' => t('Content Stats Page Cmodels'),
-      'cache' => DRUPAL_CACHE_PER_USER
+      'info' => t('Content Stats Page Content Models'),
+      'status' => 1,
+      'region' => 'content',
+      'visibility' => BLOCK_VISIBILITY_PHP,
+      'pages' =>"<?php  if (  (arg(0) =='node') || (strlen(arg(0)) < 10 && strlen(arg(0)) > 1 && count(arg()) == 1 && arg(0) != 'issues') || ( arg(0) == 'islandora' && strpos(arg(2),'collection') && count(arg()) < 4  ) ){return true;} return false; ?>",
     );
   return $blocks;
 }
+
 
 function islandora_content_stats_block_view($delta = ''){
 $blocks = array();
@@ -81,7 +93,7 @@ $blocks = array();
       $blocks['content'] = drupal_get_form('islandora_content_stats_table_form');
       break;
     case 'content_stats_page':
-        $blocks['subject'] = t('Content Stats Page Cmodles');
+        $blocks['subject'] = t('Content Stats Page Content Models');
         $blocks['content'] = drupal_get_form('islandora_content_stats_table_page_form');
         break;
   }

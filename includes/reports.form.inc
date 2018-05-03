@@ -8,10 +8,10 @@ function islandora_content_stats_table_form($form, &$form_state){
   $variables = [];
   $rows = [];
   $headers = array(
-    array('data'=> t('ID'),'field' =>'stats.id','sort' => 'desc'),
-    array('data'=> t('Query'),'field' =>'stats.query',),
-    array('data'=> t('Count'),'field' =>'stats.count',),
-    array('data'=> t('Timestamp'),'field' =>'stats.timestamp',),
+    array('data'=> t('ID'),'field' =>'stats.id', 'sort' => 'desc',),
+    array('data'=> t('Query'),'field' => 'stats.query',),
+    array('data'=> t('Count'),'field' => 'stats.count',),
+    array('data'=> t('Timestamp'),'field' => 'stats.timestamp',),
   );
   //get latest timestamp from run queries
   $max_time = '';
@@ -24,9 +24,8 @@ function islandora_content_stats_table_form($form, &$form_state){
   //second argument in db select is an alias for the table(which is the first argument.)
   $query = db_select("islandora_content_stats","stats")
     ->extend('TableSort');
+  if(!empty($form_state['input']) && $form_state['input']['op'] != 'filter'){
 
-  if(!empty($form_state['input']) && empty($form_state['input']['op'])){
-    dpm($form_state);
     //somehow get a variable from a textfield with a submit into the db_like function...
     $results = $query->fields('stats',array('id','query','count','timestamp'))
       ->orderByHeader($headers)
@@ -75,7 +74,7 @@ function islandora_content_stats_table_form($form, &$form_state){
     '#type' => 'textfield',
     '#title' => t('Collection PID'),
     '#size' => 15,
-       '#description' => t('PID string/sub-string (.i.e. "dolls:collection" or "lsu-hpl")')
+    '#description' => t('PID string/sub-string (.i.e. "dolls:collection" or "lsu-hpl")')
   );
   $form['filter']['submit'] = array(
     '#type' => 'submit',

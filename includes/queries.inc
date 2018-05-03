@@ -23,23 +23,30 @@ having \$k0 <http://mulgara.org/mulgara#occursMoreThan> '0.0'^^<http://www.w3.or
 EOL;
 
   $result = $tuque->repository->ri->itqlQuery($all_cmodels_query, 'unlimited');
-
   return $result;
 }
 
-//return only cmodels no counts. wish I could figure it in sparql
-function cmodel_types(){
+function all_ns_prefix_incl_subs(){
   $tuque = islandora_get_tuque_connection();
-  $members = array();
-
-  $cmodel_types = <<<EOL
-select \$cmodel from <#ri>
-where \$item <info:fedora/fedora-system:def/model#hasModel> \$cmodel
+  $prefixes = array();
+  $all_root_members = <<<EOL
+SELECT ?pid
+FROM <#ri>
+WHERE
+{?pid <fedora-rels-ext:isMemberOfCollection> <info:fedora/islandora:root>}
 EOL;
 
-  $result = $tuque->repository->ri->itqlQuery($cmodel_types, 'unlimited');
-  return $result;
+  $result = $tuque->repository->ri->sparqlQuery($all_root_members, 'unlimited');
+  $prefixes = array();
+  foreach($result as $key => $val){
+    $plode = explode('-', $result[$key]['pid']['value']);
+    array_pop($plode);
+      $joined = implode('-',$plode);
+      $prefixes[$joined] =$joined;
+  }
+  return array_unique($prefixes);
 }
+
 
 /**
  * Query the ri for a count of a collection's content models
@@ -47,7 +54,6 @@ EOL;
  */
 function collection_cmodel_query($collection) {
   $tuque = islandora_get_tuque_connection();
-
   $query = <<<EOL
 select \$cmodel
 count(select \$item from <#ri>
@@ -63,110 +69,30 @@ EOL;
   $cmodel_counts = $tuque->repository->ri->itqlQuery($query, 'unlimited');
   $sanitized_array = [];
   foreach($cmodel_counts as $cmodel_count){
+    if($cmodel_count['cmodel']['value'] != 'fedora-system:FedoraObject-3.0'){
       $sanitized_array[$cmodel_count['cmodel']['value']] = $cmodel_count['k0']['value'];
+    }
+    else{
+        $sanitized_array[$cmodel_count['cmodel']['value']] = $cmodel_count['k0']['value'];
+    }
   }
-  $result[$collection] = [$sanitized_array];
+  $result[$collection] = $sanitized_array;
+  //dpm('collection_cmodel_query');
+  //dpm($result);
   return $result;
-}
-
-/**
- * SPARQLQuery for the content models and counts within an institution
- * used by all_institution_cmodel_query
- */
-function institution_cmodel_query($ns_prefix){
-  $tuque = islandora_get_tuque_connection();
-  //first query gets all the collections that contain the ns_prefix string.
-  $query_ns = <<<EOQ
-SELECT ?pid
-FROM <#ri>
-WHERE {
-{?pid <fedora-rels-ext:isMemberOfCollection> <info:fedora/islandora:root>}
-FILTER regex(str(?pid), "$ns_prefix")
-}
-ORDER BY ?pid
-EOQ;
-  $members = [];
-  $result =  $tuque->repository->ri->sparqlQuery($query_ns, 'unlimited');
-  foreach ($result as $member) {
-    $member_pid = preg_replace('/info:fedora\//', '', $member['pid']['value']);
-    $members[$ns_prefix] = $member_pid;
-  }
-  foreach($members as $coll_pid){
-    //same query as collection_cmodel_query but in sparql
-    $query_cm = <<<EOL
-SELECT ?cmodel ?item
-FROM <#ri>
-WHERE { ?item <info:fedora/fedora-system:def/model#hasModel> ?cmodel .
-?item <info:fedora/fedora-system:def/model#state> <fedora-model:Active> .
-?item <fedora-rels-ext:isMemberOfCollection> <info:fedora/$coll_pid> .
-}
-EOL;
-    $results = $tuque->repository->ri->sparqlQuery($query_cm, 'unlimited');
-  }
-  //check that the institution exists
-  if(isset($results)){
-    $models = [];
-    foreach($results as $item ){
-      if($item['cmodel']['value'] != 'fedora-system:FedoraObject-3.0'){
-        $models[$item['cmodel']['value']] = array();
-      }
-    }
-    foreach($models as $ctype => $value){
-      foreach($results as $item ){
-        if($item['cmodel']['value'] == $ctype){
-          array_push($models[$ctype],$item['item']['value']);
-        }
-      }
-    }
-    $cmodel_collection = [];
-    foreach($models as $key => $value){
-      if($value){
-        $cmodel_collection[$key] = count($value);  }
-      }
-      return $cmodel_collection;
-  }
-}
-
-/**
- * SPARQL that queries root for all existing collections
- * containing institutional prefix string
- */
-function all_institution_cmodel_query_count(){
-  $tuque = islandora_get_tuque_connection();
-  $institutions = update_namespace_prefixes_cache();
-  $institution_coll_counts = [];
-  foreach($institutions as $lib){
-    $query = <<<EOQ
-SELECT ?pid
-FROM <#ri>
-WHERE {
-{?pid <fedora-rels-ext:isMemberOfCollection> <info:fedora/islandora:root>}
-FILTER regex(str(?pid), "$lib")
-}
-ORDER BY ?pid
-EOQ;
-    $result =  $tuque->repository->ri->countQuery($query, 'sparql');
-    $institution_coll_counts[$lib] = $result;
-  }
-  $coll_models = [];
-  foreach($institution_coll_counts as $key => $val){
-      //dpm($val);
-    $coll_models[$key] =  institution_cmodel_query($key);
-  }
-  return $coll_models;
 }
 
 /**
  * SPARQL that queries root for all existing collections
  * different from above. not a count query. store all the collections then use later
  * containing institutional prefix string
- * WIP
  */
 function all_institution_each_collection_query_count(){
   $tuque = islandora_get_tuque_connection();
   $institution_colls = [];
-  $institutions = update_namespace_prefixes_cache();
+  $institutions = all_ns_prefix_incl_subs();
   foreach($institutions as $lib){
+    $lib = $lib.'-';
     $query = <<<EOQ
 SELECT ?pid
 FROM <#ri>
@@ -176,7 +102,7 @@ FILTER regex(str(?pid), "$lib")
 }
 ORDER BY ?pid
 EOQ;
-    $coll_results =  $tuque->repository->ri->sparqlQuery($query, 'sparql');
+    $coll_results =  $tuque->repository->ri->sparqlQuery($query, 'unlimited');
     foreach($coll_results as $key => $coll){
     $institution_colls[$lib.$key] = $coll['pid']['value'];
     }
@@ -185,15 +111,82 @@ EOQ;
   foreach($institution_colls as $inst_num => $collection){
     $coll_count_results = collection_cmodel_query($collection);
     foreach($coll_count_results as $collection => $array){
-        foreach($array as $key => $model_count){
-            foreach($model_count as $model => $count){
-                $coll_models[preg_replace('/\d/','',$inst_num)." : ".$collection." : ".$model] = $count;
-            }
-        }
-
+      foreach($array as $model => $count){
+        $coll_models[preg_replace('/\d/','',$inst_num)." ".$collection." ".$model] = $count;
+      }
     }
   }
   return $coll_models;
+}
+
+//return only cmodels no counts. wish I could figure it in sparql
+function cmodel_types(){
+  $tuque = islandora_get_tuque_connection();
+  $members = array();
+  $cmodel_types = <<<EOL
+select \$cmodel from <#ri>
+where \$item <info:fedora/fedora-system:def/model#hasModel> \$cmodel
+EOL;
+
+  $result = $tuque->repository->ri->itqlQuery($cmodel_types, 'unlimited');
+  return $result;
+}
+
+function institution_cmodel_totals($ns_prefix){
+  //dpm($ns_prefix);
+  $inst_cmodel_counts = [];
+  $cmodels = cmodel_types();
+  foreach($cmodels as $model){
+    $model = $model['cmodel']['value'];
+    if($model =='fedora-system:ContentModel-3.0'||$model == 'islandora:collectionCModel'){
+    }
+    else{
+      $inst_cmodel_counts[$model] = 0;
+    }
+  }
+  $tuque = islandora_get_tuque_connection();
+  //first query gets all the collections that contain the ns_prefix string.
+  $ns_prefix = $ns_prefix.'-';
+  $ns_member_q = <<<EOQ
+  SELECT ?pid
+  FROM <#ri>
+  WHERE {
+  {?pid <fedora-rels-ext:isMemberOfCollection> <info:fedora/islandora:root>}
+  FILTER regex(str(?pid), "$ns_prefix")
+  }
+  ORDER BY ?pid
+EOQ;
+
+  $member_colls= $tuque->repository->ri->sparqlQuery($ns_member_q, 'unlimited');
+  $inst_cmodel_counts[$ns_prefix.' '.'islandora:collectionCModel'] = $tuque->repository->ri->countQuery($ns_member_q, 'sparql');
+  foreach($member_colls as $coll){
+    $coll = $coll['pid']['value'];
+    //for each cmodel, count members of each collection
+    foreach($cmodels as $model){
+      $model = $model['cmodel']['value'];
+      if($model == 'islandora:collectionCModel'){}
+      else{
+        $query_cm = <<<EOL
+      SELECT ?cmodel ?item
+      FROM <#ri>
+      WHERE {{ ?item <info:fedora/fedora-system:def/model#hasModel> ?cmodel .
+      ?item <info:fedora/fedora-system:def/model#state> <fedora-model:Active> .
+      ?item <fedora-rels-ext:isMemberOfCollection> <info:fedora/$coll> .}
+      FILTER (!sameterm(str(?cmodel), "$model"))}
+EOL;
+        $coll_cmodel_items =  $tuque->repository->ri->sparqlQuery($query_cm, 'unlimited');
+      }
+    }
+      foreach ($coll_cmodel_items as $item_model) {
+        if($item_model['cmodel']['value']=='islandora:collectionCModel'){}
+        else{
+          $item_model = $item_model['cmodel']['value'];
+          $inst_cmodel_counts[$item_model] = $inst_cmodel_counts[$item_model] + 1;
+        }
+    }
+  }
+    //dpm($inst_cmodel_counts);
+     return $inst_cmodel_counts;
 }
 
  //if an empty texfield is submitted it defaults to a resonable interval.
@@ -212,61 +205,78 @@ function islandora_content_stats_cron() {
   $q_time = db_query('select max(timestamp) from ldl.islandora_content_stats');
   foreach($q_time as $return){
     $last_q_run = (isset ($return) ? intval($return->{'max(timestamp)'}) : 0);
+    //dpm($return);
   }
   $last_q_plus_interval = $interval + $last_q_run;
   if(time() >= $last_q_plus_interval){
-    islandora_content_stats_test();
+    islandora_content_stats_run_queries();
   }
 }
 
 // save the results to a database table (with a timestamp)
-function islandora_content_stats_test(){
+function islandora_content_stats_run_queries(){
     //echo('populating db w/ queries');
+    $time = time();
     $all_models = all_cmodel_counts();
     foreach($all_models as $model){
         db_insert('islandora_content_stats')
         ->fields(array('id', 'query', 'count', 'timestamp'))
         ->values(array(
           'id' => NULL,
-          'query' => $model['cmodel']['value'],
+          'query' =>  'islandora:root '.$model['cmodel']['value'],
           'count' => intval($model['k0']['value']),
-          'timestamp' => time(),
+          'timestamp' => $time,
         ))
         ->execute();
     }
-    $inst_models = all_institution_cmodel_query_count();
-    foreach($inst_models as $key1 => $val1){
-        if(isset($val1)){
-            foreach($val1 as $key2 => $val2){
-                    db_insert('islandora_content_stats')
-        ->fields(array('id', 'query', 'count', 'timestamp'))
-        ->values(array(
-          'id' => NULL,
-          'query' => $key1 . " " . $key2 ,
-          'count' => $val2,
-          'timestamp' => time(),
-        ))
-        ->execute();
-
-            }
+    $ns_prefixes = all_ns_prefix_incl_subs();
+    foreach($ns_prefixes as $ns){
+    $inst_model_counts = institution_cmodel_totals($ns);
+      foreach($inst_model_counts as $model => $count){
+        if(strpos($model,'islandora:collectionCModel')){
+          db_insert('islandora_content_stats')
+            ->fields(array('id', 'query', 'count', 'timestamp'))
+            ->values(array(
+              'id' => NULL,
+              'query' => $model,
+              'count' => $count,
+              'timestamp' => $time,
+            ))
+            ->execute();
+        }
+        else{
+          db_insert('islandora_content_stats')
+            ->fields(array('id', 'query', 'count', 'timestamp'))
+            ->values(array(
+              'id' => NULL,
+              'query' => $ns.'- '.$model,
+              'count' => $count,
+              'timestamp' => $time,
+            ))
+            ->execute();
         }
     }
+  }
     $inst_coll_cmodels = all_institution_each_collection_query_count();
     foreach($inst_coll_cmodels as $key => $val){
-        db_insert('islandora_content_stats')
-        ->fields(array('id','query','count','timestamp'))
-        ->values(array(
-            'id'=> NULL,
-            'query'=> $key,
-            'count'=> $val,
-            'timestamp'=> time(),
-        ))
-        ->execute();
-    }
+      db_insert('islandora_content_stats')
+      ->fields(array('id','query','count','timestamp'))
+      ->values(array(
+          'id'=> NULL,
+          'query'=> $key,
+          'count'=> $val,
+          'timestamp'=> $time,
+      ))
+      ->execute();
+  }
+
  }
 
 
  function islandora_content_stats_page_cmodels($path){
+   if(!strpos($path,'collection')){
+     $path = $path.'-';
+   }
    $last_query_time_db = db_query('select max(timestamp) from ldl.islandora_content_stats');
    $last_q_time = '';
    foreach($last_query_time_db as $return){
@@ -278,10 +288,30 @@ function islandora_content_stats_test(){
    $results = $result->fetchAll();
    $display = [];
    foreach($results as $query_r){
+     $split_q = explode(' ', $query_r->query);
+     if($path == $split_q[0] || $split_q[1]){
      if(!strpos($query_r->query,'fedora-system')){
        $display[$query_r->query] = $query_r->count;
      }
    }
-   //dpm($display);
+   }
    return $display;
  }
+
+function islandora_root_stats_queries(){
+  $ns_prefixes = all_ns_prefix_incl_subs();
+  $last_query_time_db = db_query('select max(timestamp) from ldl.islandora_content_stats');
+  $last_q_time = '';
+  foreach($last_query_time_db as $return){
+    $last_q_time = (isset ($return) ? $return->{'max(timestamp)'} : 0);
+  }
+  $query ="select * from ldl.islandora_content_stats where query not like '%-%' ";
+  $query_suf = " and timestamp = ";
+  $result = db_query($query. $query_suf . '\'' .$last_q_time . '\'');
+  $results = $result->fetchAll();
+  $display = [];
+  foreach($results as $query_r){
+    $display[$query_r->query] = $query_r->count;
+  }
+  return $display;
+}
